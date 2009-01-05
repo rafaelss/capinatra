@@ -6,19 +6,21 @@ Capistrano::Configuration.instance(:must_exist).load do
   namespace :capinatra do
     desc "Sets up apache vhost"
     task :vhost do
-      logger.info 'compiling vhost template'
-      template = File.read(File.join(File.dirname(__FILE__), '..', 'templates', 'vhost.conf.erb'))
+      if exists? :apache_vhost_dir
+        logger.info 'compiling vhost template'
+        template = File.read(File.join(File.dirname(__FILE__), '..', 'templates', 'vhost.conf.erb'))
 
-      logger.info 'uploading vhost file'
-      put ERB.new(template).result(binding), "#{application}.conf"
+        logger.info 'uploading vhost file'
+        put ERB.new(template).result(binding), "#{application}.conf"
 
-      logger.info 'moving vhost file to ' + apache_vhost_dir
-      sudo "mv #{application}.conf #{apache_vhost_dir}"
+        logger.info 'moving vhost file to ' + apache_vhost_dir
+        send fetch(:run_method), "mv #{application}.conf #{apache_vhost_dir}"
 
-      logger.info 'restarting apache'
-      sudo "sudo apache2ctl graceful"
+        logger.info 'restarting apache'
+        send fetch(:run_method), "sudo apache2ctl graceful"
+      end
     end
-    
+
     desc "Adds config.ru file"
     task :config do
       logger.info 'compiling config.ru template'
@@ -27,8 +29,10 @@ Capistrano::Configuration.instance(:must_exist).load do
       logger.info 'uploading config.ru file'
       put ERB.new(template).result(binding), "config.ru"
 
-      logger.info 'moving vhost file to ' + apache_vhost_dir
-      sudo "mv config.ru #{release_path}"
+      if exists? :apache_vhost_dir
+        logger.info 'moving vhost file to ' + apache_vhost_dir
+        send fetch(:run_method), "mv config.ru #{release_path}"
+      end
     end
   end
 end
