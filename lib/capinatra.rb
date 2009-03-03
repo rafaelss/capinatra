@@ -4,6 +4,12 @@ Capistrano::Configuration.instance(:must_exist).load do
   after "deploy:update_code", "capinatra:config"
   
   namespace :capinatra do
+    desc "Copies the Rack configuration template to the current directory (useful if you want to override behavior)"
+    task :copy_config do
+      require 'fileutils'
+      FileUtils.cp File.join(File.dirname(__FILE__), '..', 'templates', 'config.ru.erb'), File.join(Dir.pwd, 'config.ru.erb')
+    end
+    
     desc "Sets up apache vhost"
     task :vhost do
       if exists? :apache_vhost_dir
@@ -23,16 +29,21 @@ Capistrano::Configuration.instance(:must_exist).load do
 
     desc "Adds config.ru file"
     task :config do
-      logger.info 'compiling config.ru template'
       template = File.read(File.join(File.dirname(__FILE__), '..', 'templates', 'config.ru.erb'))
+      if File.exist?(File.join(Dir.pwd, 'config.ru.erb'))
+        template = File.join(Dir.pwd, 'config.ru.erb')
+        logger.info 'using custom Rack configuration template'
+      else
+        logger.info 'using supplied Rack configuration template'
+      end
 
-      logger.info 'uploading config.ru file'
+      logger.info 'compiling config.ru template'
       put ERB.new(template).result(binding), "config.ru"
 
-      if exists? :apache_vhost_dir
-        logger.info 'moving vhost file to ' + apache_vhost_dir
-        send fetch(:run_method), "mv config.ru #{release_path}"
-      end
+      logger.info 'uploading config.ru file'
+
+      logger.info 'moving config.ru file to ' + release_path
+      sudo "mv config.ru #{release_path}"
     end
   end
 end
